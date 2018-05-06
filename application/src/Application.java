@@ -1,9 +1,9 @@
-import java.io.*;
 import java.net.*;
 
 /**
  * The main application
  * @author 黒人間 kuroningen@ano.nymous.xyz
+ * @since  2018.05.06
  */
 public class Application {
 
@@ -46,8 +46,24 @@ public class Application {
      * Start of application
      * @param args Command Line Arguments
      */
-    public static void main(String[] args) {
-        getInstance().server.start(12345);
+    public static void main(String[] args) throws SocketException, UnknownHostException {
+        getInstance().server.start(new RequestHandler(), 12345);
         getInstance().testClient.start(12345);
+    }
+
+    private static class RequestHandler implements ClientRequestHandler{
+
+        /**
+         * Method responsible for handling client's request
+         * @param server Server to handle
+         */
+        @Override
+        public void handle(Server server) {
+            server.waitsFor("HELLO").replies("HI");
+            server.waitsFor("ANNEONG").replies("ANNEONG");
+            if (server.waitsFor("SHINE!").ifMet()) {
+                server.die();
+            }
+        }
     }
 }

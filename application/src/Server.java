@@ -1,63 +1,60 @@
-import java.io.*;
+import java.io.IOException;
 import java.net.*;
+import java.util.Arrays;
 
+/**
+ * UDP Server
+ * @author 黒人間 kuroningen@ano.nymous.xyz
+ * @since  2018.05.06
+ */
 public class Server implements Runnable {
 
     /**
-     * Port where this server is going to be bound
+     * The UDP Socket
      */
-    private int port;
+    private DatagramSocket socket;
 
     /**
-     * IP Address where this server is going to be bound (as string)
+     * Received packet from client
      */
-    private String strIp;
+    private DatagramPacket receivedPacket;
 
     /**
-     * When an object implementing interface <code>Runnable</code> is used
-     * to create a thread, starting the thread causes the object's
-     * <code>run</code> method to be called in that separately executing
-     * thread.
-     * <p>
-     * The general contract of the method <code>run</code> is that it may
-     * take any action whatsoever.
-     *
-     * @see     java.lang.Thread#run()
+     * Wait for string condition
+     */
+    private String waitForString;
+
+    /**
+     * Server Handler
+     */
+    private ClientRequestHandler clientRequestHandler;
+
+    /**
+     * Starts the server. This method should not be called directly.
+     * This method is intended to be called by a thread (Multi Threading)
+     * Use start instead.
      */
     @Override
     public void run() {
-        String clientSentence;
-        String capitalizedSentence;
-        try {
-            // IP Address where this server is going to be bound
-            InetAddress ip = InetAddress.getByName(this.strIp);
-            // Number of connections queued (predefined)
-            int backlog = 50;
-            ServerSocket welcomeSocket = new ServerSocket(this.port, backlog, ip);
-            while (true) {
-                Socket connectionSocket = welcomeSocket.accept();
-                BufferedReader inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
-                DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
-                clientSentence = inFromClient.readLine();
-                System.out.println("Received: " + clientSentence);
-                capitalizedSentence = clientSentence.toUpperCase() + '\n';
-                outToClient.writeBytes(capitalizedSentence);
+        do {
+            try {
+                waitForClient();
+            } catch (SocketException e) {
+                break; // Socket is closed
             }
-        } catch (Exception e) {
-            System.err.println(e.getMessage());
-        }
+            clientRequestHandler.handle(this);
+        } while (true);
+        System.out.println("The server has been closed.");
     }
-
 
     /**
      * Starts the server
      * @param port Port where to bind this connection
-     * @param ip   IP where to bind this connection.
+     * @param host Host where to bind this connection.
      */
-    public void start(int port, String ip)
-    {
-        this.port = port;
-        this.strIp = ip;
+    public void start(ClientRequestHandler clientRequestHandler, int port, String host) throws SocketException, UnknownHostException {
+        this.clientRequestHandler = clientRequestHandler;
+        createSocket(port, host);
         Thread t = new Thread(this);
         t.start();
     }
@@ -66,8 +63,96 @@ public class Server implements Runnable {
      * Starts the server. Uses 0.0.0.0 as IP address by default
      * @param port Port where to bind this connection
      */
-    public void start(int port)
-    {
-        this.start(port, "0.0.0.0");
+    public void start(ClientRequestHandler clientRequestHandler, int port) throws SocketException, UnknownHostException {
+        start(clientRequestHandler, port, "0.0.0.0");
+    }
+
+    /**
+     * Creates the socket
+     * @param port Port where to bind this connection
+     * @param host Host where to bind this connection.
+     * @throws UnknownHostException
+     */
+    private void createSocket(int port, String host) throws UnknownHostException, SocketException {
+        socket = new DatagramSocket(port, InetAddress.getByName(host));
+    }
+
+    /**
+     * Creates a packet from byte buffer
+     * @param buffer
+     * @return
+     */
+    private DatagramPacket createPacket(byte[] buffer) {
+        return new DatagramPacket(buffer, buffer.length);
+    }
+
+    /**
+     * Creates a packet from buffer and existing packet
+     * @param buffer
+     * @param packet
+     * @return
+     */
+    private DatagramPacket createPacket(byte[] buffer, DatagramPacket packet) {
+        return new DatagramPacket(buffer, buffer.length, packet.getAddress(), packet.getPort());
+    }
+
+    /**
+     * Wait first for client (before doing anything else)
+     */
+    private void waitForClient() throws SocketException {
+        byte[] buffer = new byte[4096];
+        receivedPacket = createPacket(buffer);
+        do {
+            try {
+                socket.receive(receivedPacket);
+                return;
+            } catch (SocketException e) {
+                throw e;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } while (true);
+    }
+
+    /**
+     * Waits for [condition] and executes appropriate action
+     * @param condition  Condition needed to execute certain command, or response to client
+     * @return Returns this instance
+     */
+    public Server waitsFor(String condition) {
+        waitForString = condition;
+        return this;
+    }
+
+    /**
+     * If given condition is met, then returns true
+     */
+    public boolean ifMet() {
+        System.out.println("IF-MET: " + new String(receivedPacket.getData()).trim());
+        return waitForString.equalsIgnoreCase(new String(receivedPacket.getData()).trim());
+    }
+
+    /**
+     * Replies to server when the given condition string is sent by the client
+     * @param serverResponse  Response by the server
+     * @return Returns TRUE if condition is met. If condition is not met, then it will return false
+     */
+    public boolean replies(String serverResponse) {
+        if (!ifMet()) {
+            return false;
+        }
+        try {
+            socket.send(createPacket(serverResponse.getBytes(), receivedPacket));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return true;
+    }
+
+    /**
+     * Closes the socket server
+     */
+    public void die() {
+        socket.close();
     }
 }
