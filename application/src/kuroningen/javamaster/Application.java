@@ -1,3 +1,7 @@
+package kuroningen.javamaster;
+
+import kuroningen.javamaster.interfaces.ClientRequestHandler;
+
 import java.net.*;
 
 /**
@@ -33,7 +37,7 @@ public class Application {
 
     /**
      * Returns the singleton instance of this class
-     * @return Application
+     * @return kuroningen.javamaster.Application
      */
     private static Application getInstance() {
         if (instance == null) {
@@ -51,7 +55,7 @@ public class Application {
         getInstance().testClient.start(12345);
     }
 
-    private static class RequestHandler implements ClientRequestHandler{
+    private static class RequestHandler implements ClientRequestHandler {
 
         /**
          * Method responsible for handling client's request
