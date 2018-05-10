@@ -1,6 +1,8 @@
 package kuroningen.javamaster;
 
-import kuroningen.javamaster.interfaces.ClientRequestHandler;
+import kuroningen.javamaster.exceptions.PeerException;
+import kuroningen.javamaster.peer.Peer;
+import kuroningen.javamaster.peer.PeerHandler;
 
 import java.net.*;
 
@@ -12,14 +14,9 @@ import java.net.*;
 public class Application {
 
     /**
-     * Our Server
+     * Server and client
      */
-    private Server server;
-
-    /**
-     * Test client
-     */
-    private TestClient testClient;
+    private Peer _peer;
 
     /**
      * Singleton instance
@@ -31,8 +28,7 @@ public class Application {
      * (This class is using singleton pattern)
      */
     private Application() {
-        server = new Server();
-        testClient = new TestClient();
+        _peer = new Peer();
     }
 
     /**
@@ -50,23 +46,25 @@ public class Application {
      * Start of application
      * @param args Command Line Arguments
      */
-    public static void main(String[] args) throws SocketException, UnknownHostException {
-        getInstance().server.start(new RequestHandler(), 12345);
-        getInstance().testClient.start(12345);
+    public static void main(String[] args) throws UnknownHostException, PeerException, SocketException {
+        getInstance()._peer.serve(new ServerHandler(), 12345);
     }
 
-    private static class RequestHandler implements ClientRequestHandler {
-
+    /**
+     * Class responsible for handling the server's actions based on peer's request.
+     */
+    private static class ServerHandler extends PeerHandler {
         /**
-         * Method responsible for handling client's request
-         * @param server Server to handle
+         * Method responsible for handling peer's request
          */
         @Override
-        public void handle(Server server) {
-            server.waitsFor("HELLO").replies("HI");
-            server.waitsFor("ANNEONG").replies("ANNEONG");
-            if (server.waitsFor("SHINE!").ifMet()) {
-                server.die();
+        public void handle() {
+            waitsFor("HELLO").replies("HI");
+            waitsFor("ANNEONG").replies("ANNEONG");
+            waitsFor("HELLO").replies("HI");
+            waitsFor("ANNEONG").replies("ANNEONG");
+            if (waitsFor("SHINE!").ifMet()) {
+                closeSocket();
             }
         }
     }

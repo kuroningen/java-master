@@ -1,11 +1,9 @@
 package kuroningen.javamaster.peer;
 
 import kuroningen.javamaster.exceptions.PeerException;
-import kuroningen.javamaster.interfaces.PeerRequestHandler;
 
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 
 /**
  * Class kuroningen.javamaster.peer.Peer
@@ -13,26 +11,16 @@ import java.net.SocketException;
  * @author 黒人間 kuroningen@ano.nymous.xyz
  * @since 2018.05.09
  */
-public class Peer implements Runnable {
+public class Peer {
     /**
-     * Marks true if peer acts as server
+     * Server instance
      */
-    private boolean _isServer = false;
+    private Server _server;
 
     /**
-     * Marks true if peer acts as client
+     * Client instance
      */
-    private boolean _isClient = false;
-
-    /**
-     * Server request handler
-     */
-    private PeerRequestHandler serverRequestHandler;
-
-    /**
-     * Client request handler
-     */
-    private PeerRequestHandler clientRequestHandler;
+    private Client _client;
 
     /**
      * Uses peer as a server
@@ -41,7 +29,7 @@ public class Peer implements Runnable {
      * @throws PeerException  If this peer instance is already a server,
      *                        this will throw a PeerException error.
      */
-    public void serve(PeerRequestHandler serverRequestHandler, int port) throws PeerException {
+    public void serve(PeerHandler serverRequestHandler, int port) throws PeerException, UnknownHostException, SocketException {
         this.serve(serverRequestHandler, "0.0.0.0", port);
     }
 
@@ -53,38 +41,12 @@ public class Peer implements Runnable {
      * @throws PeerException  If this peer instance is already a server,
      *                        this will throw a PeerException error.
      */
-    public void serve(PeerRequestHandler serverRequestHandler, String host, int port) throws PeerException {
-        if (this._isServer) {
+    public void serve(PeerHandler serverRequestHandler, String host, int port) throws PeerException, UnknownHostException, SocketException {
+        if (_server != null) {
             throw new PeerException("kuroningen.javamaster.peer.Peer is already a server");
         }
-        this.serverRequestHandler = serverRequestHandler;
-        this._isServer = true;
-        this.serverSocket = new DatagramSocket(port, InetAddress.getByName(host));
-        Thread t = new Thread(this);
-        t.start();
+        _server = new Server(serverRequestHandler, host, port);
+        _server.serve();
     }
 
-    /**
-     * When an object implementing interface <code>Runnable</code> is used
-     * to create a thread, starting the thread causes the object's
-     * <code>run</code> method to be called in that separately executing
-     * thread.
-     * <p>
-     * The general contract of the method <code>run</code> is that it may
-     * take any action whatsoever.
-     *
-     * @see Thread#run()
-     */
-    @Override
-    public void run() {
-        do {
-            try {
-                waitForClient();
-            } catch (SocketException e) {
-                break; // Socket is closed
-            }
-            clientRequestHandler.handle(this);
-        } while (true);
-        System.out.println("The server has been closed.");
-    }
 }
